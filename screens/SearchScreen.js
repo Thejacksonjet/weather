@@ -25,7 +25,7 @@ const SearchScreen = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const navigation = useNavigation();
 
-  // Geoapify API key (replace with your key from https://www.geoapify.com/)
+  
   const GEOAPIFY_API_KEY = 'b9262113cfe540c0975a6badc188fed8';
 
   // Load search history and last weather data on mount

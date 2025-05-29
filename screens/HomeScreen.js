@@ -7,15 +7,18 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
+  Platform,
 } from "react-native";
 import * as Location from "expo-location";
 import { getWeatherByCoords, getForecastByCoords } from "../utils/weather";
 import { isDayTime, getWeatherIcon } from "../utils/theme";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 
 const fallbackLocation = {
-  latitude: 40.7128, // New York
-  longitude: -74.006,
+  latitude: -3.3869,
+  longitude: 36.6829,
 };
 
 const HomeScreen = ({ navigation, route }) => {
@@ -59,7 +62,6 @@ const HomeScreen = ({ navigation, route }) => {
           console.log("Current position:", coords);
         } catch (locError) {
           console.error("Location error:", locError.message);
-          setError("Failed to get location. Using fallback location.");
           coords = fallbackLocation;
         }
       }
@@ -117,36 +119,70 @@ const HomeScreen = ({ navigation, route }) => {
   }, [route.params?.location]);
 
   const renderForecastItem = ({ item }) => {
-  // Create date object from timestamp
-  const date = new Date(item.dt * 1000);
-  
-  // Get formatted date components
-  const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
-  const dayOfMonth = date.getDate();
-  const month = date.toLocaleDateString('en-US', { month: 'short' });
-  
-  // Get weather condition
-  const main = item.weather[0].main;
-  
-  // Calculate if it's day or night for this forecast time
-  const isDay = isDayTime(item); // Assuming your weather data has sunrise/sunset info
-  
-  return (
-    <View style={[styles.forecastCard, themeStyles.card]}>
-      <Text style={[styles.forecastDay, themeStyles.text]}>
-        {`${dayOfWeek} ${dayOfMonth}-${month}`}
-      </Text>
-      <Image
-        source={getWeatherIcon(main, isDay)}
-        style={styles.forecastIcon}
-      />
-      <Text style={[styles.forecastTemp, themeStyles.text]}>
-        {Math.round(item.main.temp)}°C
-      </Text>
-      <Text style={themeStyles.text}>{main}</Text>
-    </View>
-  );
-};
+    // Create date object from timestamp
+    const date = new Date(item.dt * 1000);
+
+    // Get formatted date components
+    const dayOfWeek = date.toLocaleDateString("en-US", { weekday: "short" });
+    const dayOfMonth = date.getDate();
+    const month = date.toLocaleDateString("en-US", { month: "short" });
+
+    // Get weather condition
+    const main = item.weather[0].main;
+
+    // Calculate if it's day or night for this forecast time
+    const forecastIsDay = isDayTime(item); // Using forecastIsDay to avoid conflict with component state
+
+    // Determine card content based on platform
+    const CardContent = () => (
+      <>
+        <Text style={[styles.forecastDay, themeStyles.text]}>
+          {`${dayOfWeek} ${dayOfMonth}-${month}`}
+        </Text>
+        <View
+          style={[
+            styles.iconWrapper,
+            {
+              backgroundColor: isDay
+                ? "rgba(255,255,255,0.15)"
+                : "rgba(0,0,0,0.2)",
+            },
+          ]}
+        >
+          <Image
+            source={getWeatherIcon(main, forecastIsDay)}
+            style={styles.forecastIcon}
+            resizeMode="contain"
+          />
+        </View>
+
+        <Text style={[styles.forecastTemp, themeStyles.text]}>
+          {Math.round(item.main.temp)}°C
+        </Text>
+        <Text style={themeStyles.text}>{main}</Text>
+      </>
+    );
+
+    // Use BlurView on iOS for true glassmorphism, regular View on Android
+    if (Platform.OS === "ios") {
+      return (
+        <BlurView
+          intensity={30}
+          tint={isDay ? "light" : "dark"}
+          style={styles.forecastCard}
+        >
+          <CardContent />
+        </BlurView>
+      );
+    } else {
+      // On Android, use a regular view with semi-transparent background
+      return (
+        <View style={[styles.forecastCard, themeStyles.card]}>
+          <CardContent />
+        </View>
+      );
+    }
+  };
 
   const themeStyles = isDay ? lightStyles : darkStyles;
 
@@ -159,28 +195,26 @@ const HomeScreen = ({ navigation, route }) => {
     );
   }
 
-  if (!weather || error) {
+  if (!weather) {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>
-          {error ||
-            "Failed to load weather data. Please check your internet connection."}
+          Failed to load weather data. Please check your internet connection.
         </Text>
         <TouchableOpacity style={styles.retryButton} onPress={fetchWeather}>
           <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.searchButton}
-          onPress={() => navigation.navigate("Search")}
-        >
-          <Text style={styles.searchButtonText}>Search for a City</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, themeStyles.background]}>
+    <LinearGradient
+      colors={isDay ? ["#47BFDF", "#4A91FF"] : ["#00172D", "#09203f"]}
+      start={{ x: 1, y: 0 }} // top right
+      end={{ x: 0, y: 1 }} // bottom left
+      style={styles.container}
+    >
       <View style={styles.header}>
         <Text style={[styles.cityText, themeStyles.text]}>{weather.name}</Text>
 
@@ -188,7 +222,7 @@ const HomeScreen = ({ navigation, route }) => {
           <Ionicons
             name="search-outline"
             size={24}
-            color={isDay ? "#000" : "#fff"}
+            color={isDay ? "#fff" : "#fff"}
           />
         </TouchableOpacity>
       </View>
@@ -228,7 +262,7 @@ const HomeScreen = ({ navigation, route }) => {
           />
         )}
       </View>
-    </View>
+    </LinearGradient>
   );
 };
 
@@ -246,8 +280,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: 'space-between', 
-   paddingVertical: 10,
+    justifyContent: "space-between",
+    paddingVertical: 10,
   },
   cityText: {
     fontSize: 22,
@@ -271,7 +305,7 @@ const styles = StyleSheet.create({
     fontSize: 72,
     fontWeight: "300",
     marginVertical: 10,
-    color: "#0cca35",
+    color: "#ffffff",
   },
   condition: {
     fontSize: 20,
@@ -299,6 +333,14 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 12,
     width: 120,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    borderWidth: 1,
+    shadowColor: "#fff",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 7,
   },
   forecastDay: {
     fontSize: 14,
@@ -342,29 +384,58 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
+  iconWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.15)", // light glow behind icon
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    marginVertical: 5,
+  },
 });
 
 const lightStyles = StyleSheet.create({
-  background: {
-    backgroundColor: "#f2f9ff",
-  },
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderColor: "rgba(255, 255, 255, 0.5)",
+    shadowColor: "#fff",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 7,
+    borderWidth: 1,
+    backdropFilter: "blur(10px)",
   },
   text: {
-    color: "#000",
+    color: "#fff",
+    textShadowColor: "rgba(0, 0, 0, 0.2)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
 });
 
 const darkStyles = StyleSheet.create({
-  background: {
-    backgroundColor: "#00172D",
-  },
   card: {
-    backgroundColor: "#09203f",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    shadowColor: "#fff",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 7,
+    borderWidth: 1,
+    backdropFilter: "blur(10px)",
   },
   text: {
     color: "#fff",
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
 });
 
